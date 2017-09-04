@@ -1,0 +1,438 @@
+/*
+#############################################################################################
+Program description:
+
+=> This program accepts input messages from the user. Each input consists of a “message string, message type and priority”. The user can enter any number of messages. When the user has completed entering the input messages, he has input “0” as the operation.
+=> Each message is stored in an instance of the class “Message”.
+=> A completion callback is defined to take arguments as the “message type” and “priority”. It composes the completion message string which will be printed once the message is deleted from the queue.
+=> message_string, message_type, message_priority and the “completion callback” are the inputs to the function “composeRequestMessage()”
+=> The messages are temporarily stored into 3 different vectors “redvec, yellowvec and bluevec” depending on their message type respectively (red, yellow and blue)
+=> The messages in each vector are sorted according to their priority and stored in ascending order within the vector. [1,2,3]
+=> 3 queues are defined in “class Storage” to store messages in FIFO order - redqueue, yellowqueue, bluequeue
+=> The messages from each vector are retrieved and pushed into the respective queue. They are pushed in the order of priority.(This way the highest priority message is pushed into the queue first, so that it can be fetched first).
+=> User enters the message type to be fetched and deleted.
+=> The main function calls, getMessageByType() to retrieve the message using the “message_type”.
+=> This message is deleted and the message_string and the completion callback string are printed.
+=> The mutex “wrlock” is used while storing contents into the queues.
+=> The mutex “rdlock” is used while fetching contents from the queues.
+
+#############################################################################################
+*/
+
+#include <iostream>
+#include <cstring>
+#include <vector>
+#include<thread>
+#include <mutex>
+
+/*
+#############################################################################################
+Function for completion callback
+# Returns a string depending on the message type and the message priority
+#############################################################################################
+*/
+
+  std::string& completionCallBack(int priority, std::string type)
+  {
+   std::string temp = “Message type is “;
+   temp.append(type);
+   temp.append(“and the priority is  “”;
+
+    if(priority == 1)
+      { 
+        return (temp.append(“very high”));
+     }
+   elsif (priority == 2)
+     {
+      return (temp.append(“Normal”));
+
+     }
+  elsif (priority ==3)
+  {
+    return (temp.append(“low”));
+
+   }
+  else
+   {
+    return (temp.append(“not defined”));
+   }
+   
+ }
+
+
+/*
+#############################################################################################
+Class to define the request message
+#############################################################################################
+*/
+
+class Message
+{
+  public:
+   Message(){}
+  ~Message(){}
+
+//set and get functions for message_string, message_type, priority
+
+   void setMessageString(std::string& str)
+   {
+     message_string.assign(str);
+   }
+
+   void setMessageCompletionString(std::string& str)
+   {
+     message_completion.assign(str);
+   }
+
+   void setMessageType(std::string& str)
+   {
+     message_type.assign(str);
+   }
+
+   void setMessagePriority(int priority)
+   {
+     message_priority = priority;
+     
+   }
+
+
+   std::string& getMessageString()
+   {
+     return message_string;
+   }
+
+   std::string& getMessageCompletionString()
+   {
+     return message_completion;
+   }
+
+   std::string& getMessageType()
+   {
+     return message_type;
+   }
+
+   std::string& getMessagePriority()
+   {
+     return message_priority;
+     
+   }
+
+//composing new message. setting the member variables
+
+composeRequestMessage(std::string message_string, std::string message_type, int priority, const string&(*completionCallBackPtr(int, string))
+   {
+      setMessageString(message_string);
+      setMessageType(message_type);
+      setMessagePriority(priority);
+
+      message_completion.assign(completionCallBackPtr(type,priority);
+
+   }
+  
+
+  private:
+   string message_string;
+   string message_type;
+   string message_priority;
+	
+
+}; //End of class Message
+
+/*
+#############################################################################################
+Class to store the request messages
+
+#############################################################################################
+*/
+
+class Storage
+{
+  public:
+  Storage(){}
+  ~Storage(){}
+
+
+//3 queues are defined to hold the messages by type
+//The messages are pushed in the order of priority. Priority 1 will be pushed first.
+
+ std::queue<Message> redMessageQueue;
+ std::queue<Message> blueMessageQueue;
+ std::queue<Message> yellowMessageQueue;
+
+
+// read and write muteness are defined to keep the functions thread safe
+
+  std::mutex rdlock;
+  std::mutex wrlock;
+
+
+//The messages are temporarily stored in 3 vectors (by type)
+void storeMessagesByType(std::vector<Message*> redvec, std::vector<Message*> yellowvec, std::vector<Message*> bluevec)
+ {
+ //sort red vector based on priority
+    sortVectorByPriority(redvec);
+
+ //sort yellow vector based on priority
+   sortVectorByPriority(yellowvec);
+
+ //sort blue vector based on priority
+   sortVectorByPriority(bluevec);
+
+
+//After sorting each array, push the array elements as high to low priority order into their respective type queues.  (high is 1, low is 3)
+ 
+ storeInQueue(redvec, yellowvec, bluevec);
+  
+
+ }
+
+// Function to sort the temporary vector
+void sortVectorByPriority(std::vector<Message*>& vec)
+{
+  
+      Message* temp;
+      
+      fot(int i=0; i<vec.size(); i++)
+      {
+        
+         fot(int j=i+1; i< vec.size(); j++)
+         {
+            if(vec[j]->getPriority() < vec[i]->getPriority()
+                        
+            {
+               temp = vec[i];
+               vec[i] = vec[j];
+               vec[j]= temp;
+           }
+
+         }
+
+      }
+
+
+}//End of the function sortVectorByPriority
+
+
+//Function to store the vector contents into the queue
+void storeInQueue(std::vector<Message*> redvec, std::vector<Message*> yellowvec, std::vector<Message*> bluevec)
+{
+    wrlock.lock();     //THREAD SAFE
+
+     //red queue
+     for(unsigned int i=0;i< redvec.size(); i++)
+        redMessageQueue.push(redvec[i]);
+  
+     //yellow queue
+     for(unsigned int j=0;j< yellowvec.size(); j++)
+        yellowMessageQueue.push(yellowvec[i]);
+
+       
+     //blue queue
+     for(unsigned int k=0;k< bluevec.size(); j++)
+        blueMessageQueue.push(bluevec[i]);
+
+  wrlock.unlock();   //THREAD SAFE
+    
+
+} //End of function storeInQueue
+
+
+
+// Function to get the message by type
+// FIFO - First in first out
+ Message* getMessageByType (string& type)
+ {
+   rdlock.lock();   //THREAD SAFE
+   Message * temp = NULL;
+   If(type.compare(”red”) == 0)
+   {
+     //if the type is “red”, get the highest priority message from red queue
+     if(!redqueue.empty())    
+       temp = redqueuue,pop();
+    else
+      cout << “red queue is empty”;  //ERROR HANDLING
+    
+   }
+
+   If(type.compare(”yellow”) == 0)
+   {
+     //if the type is “yellow”, get the highest priority message from yellow queue
+      if(!yellowqueue.empty())  
+        temp = yellowqueuue,pop();
+     else
+        cout “yellow queue is empty”; //ERROR HANDLING
+    
+   }
+
+   If(type.compare(”blue”) == 0)
+   {
+     //if the type is “blue”, get the highest priority message from red queue
+     if(!bluequeue.empty())
+       temp = bluequeuue,pop();
+     else
+       cout << “blue queue is empty”;  //ERROR HANDLING
+    
+   }
+
+  else
+   {
+     cout <<“Invalid type”;  //ERROR HANDLING
+    }
+  rdlock.unlock();    //THREAD SAFE
+ 
+  return temp;
+ }
+
+//Function to delete the retrieved message
+//Function returns the message string + completion callback string
+ string& deleteMessage(Message* message)
+ {
+  
+   wrlock.lock();   //THREAD SAFE
+   string temp = “”;
+   temp.append(message-> getMessageString());   //Appending message string
+   temp.append(message-> getMessageCompletionString()); // Appending completion callback string
+   delete message;
+   message = NULL;
+   wrlock.unlock();   //THREAD SAFE
+
+   return temp;
+
+ }
+
+
+}; //End of class Storage
+
+
+/*
+#############################################################################################
+Main function
+#User can input a number of messages - each containing message_string, message_type and priority
+#############################################################################################
+*/
+
+void main()
+{
+  
+
+//input message from user
+//message string, message type and message priority
+
+int operation = -1;
+std::string message_string;
+std::string message_type;
+std::string message_priority;
+std::vector<Message*> redvec,yellowvec,bluevec;
+int redMessageCount = 0, yellowMessageCount=0, blueMessageCount=0;
+
+
+while(operation!=0)
+{
+   //Enter message string
+   cout << “enter message string”;
+   getline(cin,message_string);
+
+
+   //Enter message type
+   cout << “enter message type in lower case”;
+   getline(cin,message_type);
+  
+   //VALIDATE INPUT
+   if( ! (message_type.compare(“red”)==0 || (message_type.compare(“yellow”)==0) || (message_type.compare(“blue”)==0))
+   {
+       cout << “Incorrect value of message type. Type should be red, yellow or blue”;
+       break;  //exit
+
+   }
+    
+   //Enter message priority
+   cout << “enter message priority”;
+   getline(cin,message_priority);
+   int priority = atoi(message_priority);
+   //VALIDATE INPUT
+   if(!(priority==1 || priority== 2 || priority==3))
+     {
+       cout << “Incorrect value of message priority. Priority should be 1,2 or 3.”;
+       break;  //exit
+    }
+   
+  
+ //Compose New Message 
+  Message* temp = new Message();
+  temp->composeRequestMessage(message_string, message_type, priority, &completionCallBack);
+
+//store in temporary vectors according to type
+ if((temp->getMessageType()).compare(“red”)==0)
+ {
+  redvec[messagecount] = temp;
+  redMessageCount++;
+ }
+elsif((temp->getMessageType()).compare(“yellow”)==0)
+ { 
+   yellowvec[messagecount] = temp;
+   yellowMessageCount++;
+
+ }
+elsif((temp->getMessageType()).compare(“blue”)==0)
+ { 
+   bluevec[messagecount] = temp;
+   blueMessageCount++;
+
+ }
+  
+
+  cout << “Enter 0 if there are no more messages. Or enter any other number to continue to input more messages”;
+  cin>> operation;
+
+} //End of user input
+
+//Store the messages in a queue based on type.
+
+Storage messageStore = new Storage();
+messageStore->storeMessagesByType(redvec, yellowvec, bluevec);
+
+
+//Now fetch the message by message type from user for deletion
+operation = -1;
+string deltype;
+
+//Take input from user till he quits
+while(operation!=0)
+{
+ cout << “Enter message type: red, yellow or blue”;
+
+ getline(cin,deltype);
+
+ //VALIDATE INPUT
+   if( ! (deltype.compare(“red”)==0 || (deltype.compare(“yellow”)==0) || (del.compare(“blue”)==0))
+   {
+       cout << “Incorrect value of message type. Type should be red, yellow or blue”;
+       exit;
+
+   }
+
+//message is fetched
+ Message* message = messageStore->getMessageByType(deltype);  
+
+ if(message!=NULL)
+ {
+ //message is deleted
+    string ret = deleteMessageFromStore(message);
+    message = NULL;
+    cout << ret;
+ }
+ else
+ {
+    cout << “No messages in store”; //ERROR HANDLING
+
+ }   
+
+  cout << “Enter operation as 0 to quit or any other number to continue”;
+  cin >> operation;
+
+ }//End of while loop   
+
+}//End of Main
+
+//Program ends here
+
